@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --twilight-indigo: #3a405aff;
+  --powder-petal: #f9dec9ff;
+  --powder-blue: #99b2ddff;
+  --powder-blush: #e9afa3ff;
+  --ash-brown: #685044ff;
+}
+
+body {
+  margin: 0;
+  background-color: var(--powder-petal);
+  color: var(--twilight-indigo);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1cfb5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ash-brown);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--twilight-indigo);
+}
+
+/* Leaflet container fixes */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+  z-index: 10;
+}

@@ -1,0 +1,25 @@
+{
+  "name": "smart-health-northeast-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Community Health Monitoring and Early Warning System for Water-Borne Diseases in Rural Northeast India (SIH25001)",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:ml": "cd ml-service && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "seed": "npm --prefix backend run seed"
+  },
+  "keywords": [
+    "sih2025",
+    "smart-india-hackathon",
+    "northeast-india",
+    "water-borne-diseases",
+    "health-monitoring",
+    "early-warning-system"
+  ],
+  "author": "SIH 2025 Team",
+  "license": "MIT"
+}

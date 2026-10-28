@@ -1,0 +1,142 @@
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IOutbreakPrediction extends Document {
+    state: string;
+    district: string;
+    village: string;
+    predictionDate: Date;
+    targetWeekStart: Date;
+    targetWeekEnd: Date;
+    riskScore: number;
+    risk_probability: number;
+    riskLevel: 'low' | 'moderate' | 'high' | 'critical';
+    risk_classification: string;
+    predicted_outbreak: boolean;
+    prediction_horizon: string;
+    model: string;
+    model_choice: string;
+    rf_probability?: number;
+    xgb_probability?: number;
+    predictedDiseases: {
+        disease: string;
+        probability: number;
+    }[];
+    contributing_factors?: {
+        factor: string;
+        impact: string;
+        detail: string;
+    }[];
+    features: {
+        state?: string;
+        district?: string;
+        rainfall_mm?: number;
+        temperature_c?: number;
+        humidity_percent?: number;
+        water_ph?: number;
+        turbidity_ntu?: number;
+        water_contamination?: number;
+        sanitation_risk_score?: number;
+        population_density?: number;
+        recent_diarrheal_cases?: number;
+        historical_outbreak_count?: number;
+        monsoon_indicator?: number;
+        recentReportCount: number;
+        symptomDiarrhea: number;
+        symptomVomiting: number;
+        symptomFever: number;
+        waterPhLevel: number;
+        waterTurbidity: number;
+        waterContamination: number;
+        populationDensity: number;
+        seasonalFactor: number;
+        historicalOutbreakRate: number;
+    };
+    modelVersion: string;
+    confidence: number;
+    training_data_type: string;
+    isDataSynthetic: boolean;
+    disclaimer: string;
+    createdAt: Date;
+}
+
+const OutbreakPredictionSchema = new Schema<IOutbreakPrediction>(
+    {
+        state: { type: String, default: 'Assam', index: true },
+        district: { type: String, required: true, index: true },
+        village: { type: String, required: true },
+        predictionDate: { type: Date, default: Date.now },
+        targetWeekStart: { type: Date, required: true },
+        targetWeekEnd: { type: Date, required: true },
+        riskScore: { type: Number, required: true, min: 0, max: 100 },
+        risk_probability: { type: Number, default: 0, min: 0, max: 1 },
+        riskLevel: {
+            type: String,
+            enum: ['low', 'moderate', 'high', 'critical'],
+            required: true,
+        },
+        risk_classification: { type: String, default: 'Low' },
+        predicted_outbreak: { type: Boolean, default: false },
+        prediction_horizon: { type: String, default: 'Next 7 Days' },
+        model: { type: String, default: 'XGBClassifier (Best Model)' },
+        model_choice: { type: String, default: 'best_model' },
+        rf_probability: { type: Number },
+        xgb_probability: { type: Number },
+        predictedDiseases: [
+            {
+                disease: { type: String, required: true },
+                probability: { type: Number, required: true, min: 0, max: 1 },
+            },
+        ],
+        contributing_factors: [
+            {
+                factor: { type: String },
+                impact: { type: String },
+                detail: { type: String },
+            },
+        ],
+        features: {
+            state: { type: String },
+            district: { type: String },
+            rainfall_mm: { type: Number },
+            temperature_c: { type: Number },
+            humidity_percent: { type: Number },
+            water_ph: { type: Number },
+            turbidity_ntu: { type: Number },
+            water_contamination: { type: Number },
+            sanitation_risk_score: { type: Number },
+            population_density: { type: Number },
+            recent_diarrheal_cases: { type: Number },
+            historical_outbreak_count: { type: Number },
+            monsoon_indicator: { type: Number },
+            recentReportCount: { type: Number, default: 0 },
+            symptomDiarrhea: { type: Number, default: 0 },
+            symptomVomiting: { type: Number, default: 0 },
+            symptomFever: { type: Number, default: 0 },
+            waterPhLevel: { type: Number, default: 7.0 },
+            waterTurbidity: { type: Number, default: 1.0 },
+            waterContamination: { type: Number, default: 0 },
+            populationDensity: { type: Number, default: 100 },
+            seasonalFactor: { type: Number, default: 0.5 },
+            historicalOutbreakRate: { type: Number, default: 0 },
+        },
+        modelVersion: { type: String, default: '1.0.0-ne' },
+        confidence: { type: Number, default: 0.75, min: 0, max: 1 },
+        training_data_type: {
+            type: String,
+            default: 'Northeast India District-Week Surveillance Data',
+        },
+        isDataSynthetic: { type: Boolean, default: false },
+        disclaimer: {
+            type: String,
+            default:
+                'Prediction generated by the SmartHealth NE machine learning ensemble for Northeast India outbreak surveillance.',
+        },
+    },
+    { timestamps: true }
+);
+
+OutbreakPredictionSchema.index({ district: 1, village: 1, predictionDate: -1 });
+OutbreakPredictionSchema.index({ riskLevel: 1 });
+
+export const OutbreakPrediction = mongoose.model<IOutbreakPrediction>('OutbreakPrediction', OutbreakPredictionSchema);
+export default OutbreakPrediction;
