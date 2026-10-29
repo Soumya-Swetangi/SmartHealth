@@ -1,16 +1,22 @@
 import axios from 'axios';
 
-const API_BASE_URL =
+const rawBaseUrl = (
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_API_URL ||
-  '/api';
+  '/api'
+).replace(/\/+$/, '');
+
+const API_BASE_URL =
+  rawBaseUrl.startsWith('http') && !rawBaseUrl.endsWith('/api')
+    ? `${rawBaseUrl}/api`
+    : rawBaseUrl || '/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 15000
+  timeout: 60000
 });
 
 // Request interceptor — attach JWT access token
