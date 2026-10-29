@@ -4,7 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { waterTestService } from '../services/waterTestService';
 import { WaterTest, WaterTestResult } from '../types';
 import { waterTestSchema, WaterTestFormData } from '../utils/validators';
-import { NORTHEAST_VILLAGES_LIST, WATER_SOURCE_TYPES } from '../utils/constants';
+import {
+  NORTHEAST_LOCATION_HIERARCHY,
+  NORTHEAST_VILLAGES_LIST,
+  WATER_SOURCE_TYPES
+} from '../utils/constants';
 import { formatDateTime } from '../utils/formatters';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { Modal } from '../components/common/Modal';
@@ -32,9 +36,17 @@ export const WaterTestPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  const neStates = Object.keys(NORTHEAST_LOCATION_HIERARCHY);
+  const [modalState, setModalState] = useState<string>(neStates[0]);
+  const [modalDistrict, setModalDistrict] = useState<string>(
+    Object.keys(NORTHEAST_LOCATION_HIERARCHY[neStates[0]])[0]
+  );
+
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     reset,
     formState: { errors, isSubmitting }
   } = useForm<WaterTestFormData>({
@@ -51,6 +63,24 @@ export const WaterTestPage: React.FC = () => {
       notes: ''
     }
   });
+
+  const modalDistricts = Object.keys(NORTHEAST_LOCATION_HIERARCHY[modalState] || {});
+  const modalVillages = NORTHEAST_LOCATION_HIERARCHY[modalState]?.[modalDistrict] || [];
+  const selectedModalVillage = watch('village');
+
+  const handleModalStateChange = (newState: string) => {
+    setModalState(newState);
+    const firstDist = Object.keys(NORTHEAST_LOCATION_HIERARCHY[newState] || {})[0] || '';
+    setModalDistrict(firstDist);
+    const firstVil = NORTHEAST_LOCATION_HIERARCHY[newState]?.[firstDist]?.[0]?.name || '';
+    setValue('village', firstVil, { shouldValidate: true });
+  };
+
+  const handleModalDistrictChange = (newDist: string) => {
+    setModalDistrict(newDist);
+    const firstVil = NORTHEAST_LOCATION_HIERARCHY[modalState]?.[newDist]?.[0]?.name || '';
+    setValue('village', firstVil, { shouldValidate: true });
+  };
 
   const loadWaterTests = async () => {
     setLoading(true);
@@ -275,38 +305,73 @@ export const WaterTestPage: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleSubmit(onRecordSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#f9dec9]/30 rounded-xl border border-[#685044]/20">
             <div>
-              <label className="block text-xs font-bold text-[#3a405a] uppercase mb-1">
-                Village
+              <label className="block text-[11px] font-bold text-[#3a405a] uppercase mb-1">
+                1. State
               </label>
               <select
-                {...register('village')}
+                value={modalState}
+                onChange={(e) => handleModalStateChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-[#685044]/30 bg-white text-[#3a405a]"
               >
-                {NORTHEAST_VILLAGES_LIST.map((v) => (
-                  <option key={v.name} value={v.name}>
-                    {v.name}
+                {neStates.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#3a405a] uppercase mb-1">
-                Source Type
+              <label className="block text-[11px] font-bold text-[#3a405a] uppercase mb-1">
+                2. District
               </label>
               <select
-                {...register('sourceType')}
+                value={modalDistrict}
+                onChange={(e) => handleModalDistrictChange(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-[#685044]/30 bg-white text-[#3a405a]"
               >
-                {WATER_SOURCE_TYPES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
+                {modalDistricts.map((dist) => (
+                  <option key={dist} value={dist}>
+                    {dist}
                   </option>
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#3a405a] uppercase mb-1">
+                3. Village
+              </label>
+              <select
+                value={selectedModalVillage}
+                onChange={(e) => setValue('village', e.target.value, { shouldValidate: true })}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-[#685044]/30 bg-white text-[#3a405a]"
+              >
+                {modalVillages.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#3a405a] uppercase mb-1">
+              Source Type
+            </label>
+            <select
+              {...register('sourceType')}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-[#685044]/30 bg-white text-[#3a405a]"
+            >
+              {WATER_SOURCE_TYPES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

@@ -42,3 +42,5 @@ logs/
 Thumbs.db
 .vscode/
 .idea/
+*.doc
+*.docx

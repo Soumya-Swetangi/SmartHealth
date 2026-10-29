@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { reportSchema, ReportFormData } from '../../utils/validators';
-import { NORTHEAST_VILLAGES_LIST, WATER_SOURCE_TYPES, SYMPTOMS_LIST } from '../../utils/constants';
+import {
+  NORTHEAST_LOCATION_HIERARCHY,
+  NORTHEAST_VILLAGES_LIST,
+  findVillageHierarchy,
+  WATER_SOURCE_TYPES,
+  SYMPTOMS_LIST
+} from '../../utils/constants';
 import { reportService } from '../../services/reportService';
 import { Button } from '../common/Button';
 import { MapPin, AlertCircle, CheckCircle2, Navigation } from 'lucide-react';
@@ -12,10 +18,19 @@ interface ReportFormProps {
   defaultVillage?: string;
 }
 
+const NE_STATES = Object.keys(NORTHEAST_LOCATION_HIERARCHY);
+
 export const ReportForm: React.FC<ReportFormProps> = ({
   onSubmitSuccess,
   defaultVillage = ''
 }) => {
+  const initialHierarchy = findVillageHierarchy(defaultVillage);
+
+  const [selectedState, setSelectedState] = useState<string>(initialHierarchy.state);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(initialHierarchy.district);
+  const [isCustomVillage, setIsCustomVillage] = useState<boolean>(false);
+  const [customVillageName, setCustomVillageName] = useState<string>('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -32,14 +47,50 @@ export const ReportForm: React.FC<ReportFormProps> = ({
   } = useForm<ReportFormData>({
     resolver: zodResolver(reportSchema),
     defaultValues: {
-      village: defaultVillage || NORTHEAST_VILLAGES_LIST[0].name,
+      village: initialHierarchy.village,
       sourceType: 'handpump',
       symptoms: ['diarrhea'],
       description: ''
     }
   });
 
+  const districtsForState = Object.keys(NORTHEAST_LOCATION_HIERARCHY[selectedState] || {});
+  const villagesForDistrict =
+    NORTHEAST_LOCATION_HIERARCHY[selectedState]?.[selectedDistrict] || [];
+
   const selectedSymptoms = watch('symptoms') || [];
+  const currentVillage = watch('village');
+
+  const handleStateChange = (newState: string) => {
+    setSelectedState(newState);
+    const firstDistrict = Object.keys(NORTHEAST_LOCATION_HIERARCHY[newState] || {})[0] || '';
+    setSelectedDistrict(firstDistrict);
+    const firstVillage =
+      NORTHEAST_LOCATION_HIERARCHY[newState]?.[firstDistrict]?.[0]?.name || '';
+    setIsCustomVillage(false);
+    setCustomVillageName('');
+    setValue('village', firstVillage, { shouldValidate: true });
+  };
+
+  const handleDistrictChange = (newDistrict: string) => {
+    setSelectedDistrict(newDistrict);
+    const firstVillage =
+      NORTHEAST_LOCATION_HIERARCHY[selectedState]?.[newDistrict]?.[0]?.name || '';
+    setIsCustomVillage(false);
+    setCustomVillageName('');
+    setValue('village', firstVillage, { shouldValidate: true });
+  };
+
+  const handleVillageSelectChange = (val: string) => {
+    if (val === '__custom__') {
+      setIsCustomVillage(true);
+      setValue('village', customVillageName || '', { shouldValidate: true });
+    } else {
+      setIsCustomVillage(false);
+      setCustomVillageName('');
+      setValue('village', val, { shouldValidate: true });
+    }
+  };
 
   const handleSymptomToggle = (symptomId: string) => {
     const exists = selectedSymptoms.includes(symptomId);
@@ -70,10 +121,12 @@ export const ReportForm: React.FC<ReportFormProps> = ({
         setValue('latitude', pos.coords.latitude);
         setValue('longitude', pos.coords.longitude);
       },
-      (err) => {
+      () => {
         setGpsLoading(false);
-        // Fallback to village default coordinates
-        const v = NORTHEAST_VILLAGES_LIST.find((v) => v.name === watch('village')) || NORTHEAST_VILLAGES_LIST[0];
+        const v =
+          NORTHEAST_VILLAGES_LIST.find((item) => item.name === watch('village')) ||
+          villagesForDistrict[0] ||
+          NORTHEAST_VILLAGES_LIST[0];
         setDetectedLocation({
           lat: v.coordinates[1],
           lng: v.coordinates[0]
@@ -91,15 +144,18 @@ export const ReportForm: React.FC<ReportFormProps> = ({
     setSuccessMsg(null);
 
     try {
-      const vObj = NORTHEAST_VILLAGES_LIST.find((v) => v.name === data.village);
-      const coords: [number, number] = data.longitude && data.latitude
-        ? [data.longitude, data.latitude]
-        : vObj
-        ? vObj.coordinates
-        : [92.9376, 26.2006];
+      const vObj =
+        NORTHEAST_VILLAGES_LIST.find((v) => v.name === data.village) ||
+        villagesForDistrict[0];
+      const coords: [number, number] =
+        data.longitude && data.latitude
+          ? [data.longitude, data.latitude]
+          : vObj
+          ? vObj.coordinates
+          : [92.9376, 26.2006];
 
       await reportService.submitReport({
-        village: data.village,
+        village: data.village.trim(),
         sourceType: data.sourceType,
         symptoms: data.symptoms,
         description: data.description,
@@ -110,7 +166,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
       });
 
       setSuccessMsg(
-        'Your report has been logged into the regional early-warning surveillance engine. Health workers have been notified.'
+        `Your report for ${data.village} (${selectedDistrict}, ${selectedState}) has been logged into the regional early-warning surveillance engine. Health workers have been notified.`
       );
       reset();
       if (onSubmitSuccess) {
@@ -133,7 +189,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           Report Suspected Water Hazard or Illness
         </h3>
         <p className="text-xs text-[#685044] mt-1">
-          Provide observations about contaminated drinking points or community gastrointestinal symptoms in your village.
+          Select your State, District, and Village below to report contaminated drinking points or community gastrointestinal symptoms.
         </p>
       </div>
 
@@ -151,23 +207,96 @@ export const ReportForm: React.FC<ReportFormProps> = ({
         </div>
       )}
 
-      {/* Village selection */}
-      <div>
-        <label className="block text-xs font-bold text-[#3a405a] uppercase tracking-wider mb-1">
-          Village / Community
-        </label>
-        <select
-          {...register('village')}
-          className="w-full px-3.5 py-2.5 rounded-lg border border-[#685044]/30 text-sm text-[#3a405a] bg-white focus:outline-none focus:ring-2 focus:ring-[#99b2dd]"
-        >
-          {NORTHEAST_VILLAGES_LIST.map((v) => (
-            <option key={v.name} value={v.name}>
-              {v.name} ({v.state})
-            </option>
-          ))}
-        </select>
+      {/* Hierarchical Location Selector: State -> District -> Village */}
+      <div className="p-4 bg-[#f9dec9]/30 rounded-2xl border border-[#685044]/20 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-extrabold text-[#3a405a] uppercase tracking-wider flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-[#3a405a]" />
+            Location Hierarchy (State → District → Village)
+          </span>
+          <span className="text-[11px] font-semibold text-[#685044]">
+            {selectedState} • {selectedDistrict}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          {/* 1. State Dropdown */}
+          <div>
+            <label className="block text-[11px] font-bold text-[#3a405a] uppercase tracking-wider mb-1">
+              1. State
+            </label>
+            <select
+              value={selectedState}
+              onChange={(e) => handleStateChange(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-[#685044]/30 text-sm text-[#3a405a] bg-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#99b2dd]"
+            >
+              {NE_STATES.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 2. District Dropdown */}
+          <div>
+            <label className="block text-[11px] font-bold text-[#3a405a] uppercase tracking-wider mb-1">
+              2. District
+            </label>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-[#685044]/30 text-sm text-[#3a405a] bg-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#99b2dd]"
+            >
+              {districtsForState.map((dist) => (
+                <option key={dist} value={dist}>
+                  {dist}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. Village Dropdown */}
+          <div>
+            <label className="block text-[11px] font-bold text-[#3a405a] uppercase tracking-wider mb-1">
+              3. Village / Community
+            </label>
+            <select
+              value={isCustomVillage ? '__custom__' : currentVillage}
+              onChange={(e) => handleVillageSelectChange(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-[#685044]/30 text-sm text-[#3a405a] bg-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#99b2dd]"
+            >
+              {villagesForDistrict.map((v) => (
+                <option key={v.name} value={v.name}>
+                  {v.name}
+                </option>
+              ))}
+              <option value="__custom__">+ Other / Enter Village Name...</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Optional Custom Village Input if citizen selects "+ Other / Enter Village Name..." */}
+        {isCustomVillage && (
+          <div>
+            <label className="block text-xs font-bold text-[#3a405a] mb-1">
+              Enter Your Village / Hamlet Name in {selectedDistrict}, {selectedState}
+            </label>
+            <input
+              type="text"
+              value={customVillageName}
+              onChange={(e) => {
+                setCustomVillageName(e.target.value);
+                setValue('village', e.target.value, { shouldValidate: true });
+              }}
+              placeholder={`e.g. Upper Hamlet, ${selectedDistrict}`}
+              className="w-full px-3.5 py-2 rounded-lg border border-[#685044]/30 text-sm text-[#3a405a] bg-white focus:outline-none focus:ring-2 focus:ring-[#99b2dd]"
+            />
+          </div>
+        )}
+
         {errors.village && (
-          <p className="text-xs text-rose-600 mt-1">{errors.village.message}</p>
+          <p className="text-xs text-rose-600">{errors.village.message}</p>
         )}
       </div>
 
@@ -255,7 +384,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           <p className="text-[11px] text-[#685044] mt-0.5">
             {detectedLocation
               ? `GPS Captured: Lat ${detectedLocation.lat.toFixed(4)}, Lng ${detectedLocation.lng.toFixed(4)}`
-              : 'Auto-defaults to chosen village coordinates or capture live GPS.'}
+              : `Auto-defaults to ${currentVillage || selectedDistrict} coordinates (${selectedState}) or capture live GPS.`}
           </p>
         </div>
         <button
