@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IOutbreakPrediction extends Document {
+export interface IOutbreakPrediction extends Omit<Document, 'model'> {
     state: string;
     district: string;
     village: string;
